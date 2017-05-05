@@ -3,41 +3,86 @@
 import config
 import telebot
 from telebot import types
-import dotabuff
-import urllib2
+import requests
+from bs4 import BeautifulSoup
+from lxml import html
 
 
 bot = telebot.TeleBot(config.token)
 chatStatus = {}
 
 
-def get_player_id_by_name(player_name):
-    hdr = {'User-Agent': 'super happy flair bot by /u/spladug'}
-    # req = urllib2.Request(url, headers=hdr)
-    # html = urllib2.urlopen(req).read()
-    print ('http://www.dotabuff.com/search?utf8=%E2%9C%93&q=' + player_name + '&commit=Search')
-    response = urllib2.urlopen('http://www.dotabuff.com/search?utf8=%E2%9C%93&q=' + player_name + '&commit=Search', headers=hdr)
-    result_page = response.read()
-    print result_page
+def makelist(table):
+  result = []
+  allrows = table.findAll('tr')
+  for row in allrows:
+    result.append([])
+    allcols = row.findAll('td')
+    for col in allcols:
+      thestrings = [unicode(s) for s in col.findAll(text=True)]
+      thetext = ''.join(thestrings)
+      result[-1].append(thetext)
+  return result
+
+
+def get_player_by_name(player_name):
+
+    url = 'http://www.dotabuff.com/search?utf8=%E2%9C%93&q=' + player_name + '&commit=Search'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'
+    }
+    r = requests.get(url, headers=headers)
+    result_page = r.text
+
+    parsed_page = BeautifulSoup(result_page, 'html.parser')
+
+    player_id = parsed_page.find('div', {'class': 'result-player'}).find('div', {'class': 'inner'}).get('data-player-id')
+    player_name = parsed_page.find('div', {'class': 'result-player'}).get('data-filter-value')
+    player_pic_src = parsed_page.find('div', {'class': 'result-player'}).find('img').get('src')
+    player = {
+        'id': player_id,
+        'name': player_name,
+        'pic_src': player_pic_src
+    }
+
+    return player
+
+
 
 
 def get_best_heroes(player_id):
-    print (player_id)
+    url = 'https://ru.dotabuff.com/players/' + str(player_id) + '/heroes'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'
+    }
+    r = requests.get(url, headers=headers)
+    result_page = r.text
+
+    parsed_page = BeautifulSoup(result_page, 'html.parser')
+
+    table = parsed_page.find('table', {'class': 'sortable'})
+    heroes = makelist(table)
+
+    print (heroes[0])
+    print (heroes[1])
+    print (heroes[2])
+
+
 
 
 @bot.message_handler(commands=['start'])
-def send_help(message):
+def start(message):
     bot.send_message(message.chat.id, "Let's begin. Send me your nickname.")
-    chatStatus[message.chat.id] = 'waitingForNickname'
+    chatStatus[str(message.chat.id)] = 'waitingForNickname'
 
 @bot.message_handler()
-def send_help(message):
-    # print (chatStatus[118096950])
-    if chatStatus[message.chat.id] == 'waitingForNickname':
-        player_heroes = get_player_id_by_name(message.text)
-        # print (dotabuff.get_heroes_list(message.text))
-        bot.reply_to(message, "OK. It seems you excelled on:" + playerHeroes)
-
+def ask_nickname(message):
+    if str(message.chat.id) in chatStatus:
+        if chatStatus[str(message.chat.id)] == 'waitingForNickname':
+            player = get_player_by_name(message.text)
+            bot.reply_to(message, "OK. It seems i found you: \n" + player['name'])
+            bot.send_photo(message.chat.id, player['pic_src'])
+            get_best_heroes(player['id'])
 
 
 
