@@ -25,6 +25,7 @@ def makelist(table):
       result[-1].append(thetext)
   return result
 
+
 def get_player_by_name(player_name):
 
     url = 'http://www.dotabuff.com/search?utf8=%E2%9C%93&q=' + player_name + '&commit=Search'
@@ -46,6 +47,7 @@ def get_player_by_name(player_name):
     }
 
     return player
+
 
 def get_best_heroes(player_id):
     url = 'https://ru.dotabuff.com/players/' + str(player_id) + '/heroes'
@@ -76,19 +78,37 @@ def get_best_heroes(player_id):
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, "Let's begin. Send me your nickname.")
-    chatStatus[str(message.chat.id)] = 'waitingForNickname'
+    chatStatus[str(message.chat.id)] = 'waiting_for_nickname'
+
+
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    bot.reply_to(message, "Dota 2 counter picker based on your winrate and dotabuff statictics. Send /start to start.")
+
 
 @bot.message_handler(commands=['pick_starts'])
-def send_welcome(message):
+def pick_starts(message):
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add('😊 ally', '😡 enemy') #Имена кнопок
-    msg = bot.reply_to(message, 'Test text', reply_markup=markup)
-    bot.register_next_step_handler(msg, process_step)
+    markup.add('/ally', '/enemy')
+    bot.reply_to(message, 'Who has already picked?', reply_markup=markup)
+
+
+@bot.message_handler(commands=['enemy'])
+def enemy_picked(message):
+    bot.reply_to(message, 'What hero?')
+    chatStatus[str(message.chat.id)] = 'enemy_picked'
+
+
+@bot.message_handler(commands=['ally'])
+def ally_picked(message):
+    bot.reply_to(message, 'What hero?')
+    chatStatus[str(message.chat.id)] = 'ally_picked'
+
 
 @bot.message_handler()
 def ask_nickname(message):
     if str(message.chat.id) in chatStatus:
-        if chatStatus[str(message.chat.id)] == 'waitingForNickname':
+        if chatStatus[str(message.chat.id)] == 'waiting_for_nickname':
             player = get_player_by_name(message.text)
             bot.reply_to(message, "OK. It seems i found you: \n" + player['name'])
             bot.send_photo(message.chat.id, player['pic_src'])
@@ -99,25 +119,16 @@ def ask_nickname(message):
                 best_heroes_msg += hero[1] + ' (' + hero[3] + ') \n'
             bot.send_message(message.chat.id, best_heroes_msg)
             bot.send_message(message.chat.id, 'To start pick send /pick_starts')
-            # chatStatus[str(message.chat.id)] = 'gotNickname'
 
+        if chatStatus[str(message.chat.id)] == 'enemy_picked':
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+            markup.add('/ally', '/enemy')
+            bot.send_message(message.chat.id, 'goddamit', reply_markup=markup)
 
+        if chatStatus[str(message.chat.id)] == 'ally_picked':
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+            markup.add('/ally', '/enemy')
+            bot.send_message(message.chat.id, 'ea booy', reply_markup=markup)
 
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    bot.reply_to(message, "Dota 2 counter picker based on your winrate and dotabuff statictics")
-
-
-
-allies = []
-enemies = []
-
-
-def process_step(message):
-    chat_id = message.chat.id
-    if message.text=='😊 ally':
-        allies.add()
-    else:
-        enemies.add()
 
 bot.polling()
