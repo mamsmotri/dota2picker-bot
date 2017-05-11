@@ -6,11 +6,24 @@ from telebot import types
 import requests
 from bs4 import BeautifulSoup
 import re
+import json
+from pprint import pprint
 from lxml import html
 
 
 bot = telebot.TeleBot(config.token)
 chatStatus = {}
+enemies = {}
+allies = {}
+with open('heroes.json') as data_file:
+    heroes = json.load(data_file)
+
+
+def find_hero(hero_abbr):
+    hero_abbr = hero_abbr.lower()
+    for hero_name, hero_abbrs in heroes.items():
+        if any(hero_abbr in hero_name for hero_name in hero_abbrs):
+            return hero_name
 
 
 def makelist(table):
@@ -75,6 +88,10 @@ def get_best_heroes(player_id):
     return best_heroes
 
 
+def calculate_pick(allies = [], enemies = []):
+
+    return
+
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, "Let's begin. Send me your nickname.")
@@ -120,15 +137,21 @@ def ask_nickname(message):
             bot.send_message(message.chat.id, best_heroes_msg)
             bot.send_message(message.chat.id, 'To start pick send /pick_starts')
 
-        if chatStatus[str(message.chat.id)] == 'enemy_picked':
-            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-            markup.add('/ally', '/enemy')
-            bot.send_message(message.chat.id, 'goddamit', reply_markup=markup)
-
         if chatStatus[str(message.chat.id)] == 'ally_picked':
             markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
             markup.add('/ally', '/enemy')
-            bot.send_message(message.chat.id, 'ea booy', reply_markup=markup)
+            current_hero = find_hero(message.text)
+            allies[str(message.chat.id)].append(current_hero)
+            msg = calculate_pick(allies, enemies)
+            bot.send_message(message.chat.id, msg , reply_markup=markup)
+
+        if chatStatus[str(message.chat.id)] == 'enemy_picked':
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+            markup.add('/ally', '/enemy')
+            current_hero = find_hero(message.text)
+            enemies[str(message.chat.id)].append(current_hero)
+            msg = calculate_pick(allies, enemies)
+            bot.send_message(message.chat.id, msg, reply_markup=markup)
 
 
 bot.polling()
