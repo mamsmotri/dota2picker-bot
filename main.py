@@ -15,6 +15,9 @@ bot = telebot.TeleBot(config.token)
 chatStatus = {}
 enemies = {}
 allies = {}
+worst_heroes_versus = {}
+best_heroes_against = {}
+
 with open('heroes.json') as data_file:
     heroes = json.load(data_file)
 
@@ -22,7 +25,7 @@ with open('heroes.json') as data_file:
 def find_hero(hero_abbr):
     hero_abbr = hero_abbr.lower()
     for hero_name, hero_abbrs in heroes.items():
-        if any(hero_abbr in hero_name for hero_name in hero_abbrs):
+        if any(hero_abbr in hero_name for hero_name in hero_abbrs) or (hero_abbr == hero_name):
             return hero_name
 
 
@@ -62,7 +65,7 @@ def get_player_by_name(player_name):
     return player
 
 
-def get_best_heroes(player_id):
+def get_player_best_heroes(player_id):
     url = 'https://ru.dotabuff.com/players/' + str(player_id) + '/heroes'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'
@@ -88,14 +91,47 @@ def get_best_heroes(player_id):
     return best_heroes
 
 
-def calculate_pick(allies = [], enemies = []):
+def get_worst_heroes_versus(hero_name):
+    url = 'https://www.dotabuff.com/heroes/' + str(hero_name) + '/matchups'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'
+    }
+    r = requests.get(url, headers=headers)
+    result_page = r.text
 
-    return
+    parsed_page = BeautifulSoup(result_page, 'html.parser')
+
+    table = parsed_page.find('table', {'class': 'sortable'})
+    heroes_versus = makelist(table)
+    heroes_versus.remove([])
+
+    worst_heroes_versus = []
+
+    for hero in heroes_versus:
+        if float(hero[2].rstrip('%')) < 0:
+            hero[1] = re.sub("\d+|[.]", "", hero[1])
+            worst_heroes_versus.append(hero)
+
+    worst_heroes_versus.reverse()
+
+    return worst_heroes_versus
+
+
+def calculate_pick(allies = [], enemies = []):
+    result = get_worst_heroes_versus(enemies[0])
+    for enemy in enemies:
+        worst_heroes_versus[enemy] = get_worst_heroes_versus(enemy)
+        result = set(worst_heroes_versus[enemy]) and set(result)
+        print result
+
+    return result[0][1]
 
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, "Let's begin. Send me your nickname.")
     chatStatus[str(message.chat.id)] = 'waiting_for_nickname'
+    enemies[str(message.chat.id)] = []
+    allies[str(message.chat.id)] = []
 
 
 @bot.message_handler(commands=['help'])
@@ -129,11 +165,11 @@ def ask_nickname(message):
             player = get_player_by_name(message.text)
             bot.reply_to(message, "OK. It seems i found you: \n" + player['name'])
             bot.send_photo(message.chat.id, player['pic_src'])
-            best_heroes = get_best_heroes(player['id'])
+            best_heroes = get_player_best_heroes(player['id'])
 
             best_heroes_msg = 'Your best heroes are: \n'
             for hero in best_heroes:
-                best_heroes_msg += hero[1] + ' (' + hero[3] + ') \n'
+                best_heroes_msg += hero[1] + ' (' + hero[3] + ') - ' + hero[2] +' matches\n'
             bot.send_message(message.chat.id, best_heroes_msg)
             bot.send_message(message.chat.id, 'To start pick send /pick_starts')
 
@@ -142,7 +178,7 @@ def ask_nickname(message):
             markup.add('/ally', '/enemy')
             current_hero = find_hero(message.text)
             allies[str(message.chat.id)].append(current_hero)
-            msg = calculate_pick(allies, enemies)
+            msg = calculate_pick(allies, enemies[str(message.chat.id)])
             bot.send_message(message.chat.id, msg , reply_markup=markup)
 
         if chatStatus[str(message.chat.id)] == 'enemy_picked':
@@ -150,7 +186,7 @@ def ask_nickname(message):
             markup.add('/ally', '/enemy')
             current_hero = find_hero(message.text)
             enemies[str(message.chat.id)].append(current_hero)
-            msg = calculate_pick(allies, enemies)
+            msg = calculate_pick(allies, enemies[str(message.chat.id)])
             bot.send_message(message.chat.id, msg, reply_markup=markup)
 
 
