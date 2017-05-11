@@ -5,6 +5,7 @@ import telebot
 from telebot import types
 import requests
 from bs4 import BeautifulSoup
+import re
 from lxml import html
 
 
@@ -23,7 +24,6 @@ def makelist(table):
       thetext = ''.join(thestrings)
       result[-1].append(thetext)
   return result
-
 
 def get_player_by_name(player_name):
 
@@ -47,9 +47,6 @@ def get_player_by_name(player_name):
 
     return player
 
-
-
-
 def get_best_heroes(player_id):
     url = 'https://ru.dotabuff.com/players/' + str(player_id) + '/heroes'
     headers = {
@@ -62,18 +59,31 @@ def get_best_heroes(player_id):
 
     table = parsed_page.find('table', {'class': 'sortable'})
     heroes = makelist(table)
+    heroes.remove([])
 
-    print (heroes[0])
-    print (heroes[1])
-    print (heroes[2])
+    best_heroes = []
 
+    for hero in heroes:
+        if float(hero[3].rstrip('%')) > 50:
+            hero[1] = re.sub("\d+|[.]", "", hero[1])
+            best_heroes.append(hero)
+        if len(best_heroes) == 3:
+            break
 
+    return best_heroes
 
 
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, "Let's begin. Send me your nickname.")
     chatStatus[str(message.chat.id)] = 'waitingForNickname'
+
+@bot.message_handler(commands=['pick_starts'])
+def send_welcome(message):
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add('😊 ally', '😡 enemy') #Имена кнопок
+    msg = bot.reply_to(message, 'Test text', reply_markup=markup)
+    bot.register_next_step_handler(msg, process_step)
 
 @bot.message_handler()
 def ask_nickname(message):
@@ -82,16 +92,16 @@ def ask_nickname(message):
             player = get_player_by_name(message.text)
             bot.reply_to(message, "OK. It seems i found you: \n" + player['name'])
             bot.send_photo(message.chat.id, player['pic_src'])
-            get_best_heroes(player['id'])
+            best_heroes = get_best_heroes(player['id'])
+
+            best_heroes_msg = 'Your best heroes are: \n'
+            for hero in best_heroes:
+                best_heroes_msg += hero[1] + ' (' + hero[3] + ') \n'
+            bot.send_message(message.chat.id, best_heroes_msg)
+            bot.send_message(message.chat.id, 'To start pick send /pick_starts')
+            # chatStatus[str(message.chat.id)] = 'gotNickname'
 
 
-
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add('😊 ally', '😡 enemy') #Имена кнопок
-    msg = bot.reply_to(message, 'Test text', reply_markup=markup)
-    bot.register_next_step_handler(msg, process_step)
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
