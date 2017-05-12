@@ -18,6 +18,9 @@ allies = {}
 worst_heroes_versus = {}
 best_heroes_against = {}
 
+
+
+
 with open('heroes.json') as data_file:
     heroes = json.load(data_file)
 
@@ -121,10 +124,14 @@ def calculate_pick(allies = [], enemies = []):
     result = get_worst_heroes_versus(enemies[0])
     for enemy in enemies:
         worst_heroes_versus[enemy] = get_worst_heroes_versus(enemy)
+        print set(result)
         result = set(worst_heroes_versus[enemy]) and set(result)
+
         print result
 
     return result[0][1]
+
+calculate_pick([], ['dazzle', 'arc-warden'])
 
 @bot.message_handler(commands=['start'])
 def start(message):
