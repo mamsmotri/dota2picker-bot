@@ -5,7 +5,7 @@ import telebot
 from telebot import types
 import requests
 from bs4 import BeautifulSoup
-from lxml import html
+# from lxml import html
 
 
 bot = telebot.TeleBot(config.token)
@@ -19,7 +19,7 @@ def makelist(table):
     result.append([])
     allcols = row.findAll('td')
     for col in allcols:
-      thestrings = [unicode(s) for s in col.findAll(text=True)]
+      thestrings = [str(s) for s in col.findAll(text=True)]
       thetext = ''.join(thestrings)
       result[-1].append(thetext)
   return result
