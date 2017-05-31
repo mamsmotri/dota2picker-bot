@@ -1,14 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import config
-import telebot
-from telebot import types
-import requests
-from bs4 import BeautifulSoup
-import re
-import json
-from pprint import pprint
-from lxml import html
+from dependencies import *
 
 
 bot = telebot.TeleBot(config.token)
@@ -143,14 +135,14 @@ def calculate_pick_statistic(allies = [], enemies = []):
     statistic_heroes = set(make_list_for_set(get_worst_heroes_versus(enemies[0])))
     for enemy in enemies:
         worst_heroes_versus[enemy] = make_list_for_set(get_worst_heroes_versus(enemy))
-        print statistic_heroes
-        print set(worst_heroes_versus[enemy])
+        print (statistic_heroes)
+        print (set(worst_heroes_versus[enemy]))
 
         statistic_heroes = set(worst_heroes_versus[enemy]) & statistic_heroes
 
-        print 'new result:'
-        print statistic_heroes
-        print "\n"
+        print ('new result:')
+        print (statistic_heroes)
+        print ("\n")
 
 
     return statistic_heroes
@@ -204,7 +196,7 @@ def ally_picked(message):
 
 @bot.message_handler()
 def ask_nickname(message):
-    print message.chat.id
+    print (message.chat.id)
     if str(message.chat.id) in chatStatus:
         if chatStatus[str(message.chat.id)] == 'waiting_for_nickname':
             player = get_player_by_name(message.text)
